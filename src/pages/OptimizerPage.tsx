@@ -74,11 +74,12 @@ export function OptimizerPage({ metrics, defaultWeights = DEFAULT_OPTIMIZER_WEIG
             </label>
             <input
               type="number"
+              inputMode="decimal"
               step="500"
               min="0"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-base font-semibold text-[var(--text-primary)]"
+              className="mt-1.5 min-h-[44px] w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-base font-semibold text-[var(--text-primary)]"
             />
           </div>
 

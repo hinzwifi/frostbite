@@ -255,7 +255,10 @@ export function PosPage({ products, batches, stores, overrides, sales, saleItems
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter items or scan"
-              className="flex-1 min-w-[160px] rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              autoCapitalize="none"
+              autoCorrect="off"
+              enterKeyHint="search"
+              className="min-h-[40px] flex-1 min-w-[160px] rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
           </div>
 

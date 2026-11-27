@@ -67,6 +67,11 @@ export function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
     localStorage.setItem('frostbite_theme', dark ? 'dark' : 'light');
+    // Sync mobile status bar color with active theme
+    const meta = document.querySelector('meta[name="theme-color"]:not([media])') ?? document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    meta.setAttribute('content', dark ? '#0d1117' : '#f6f8fa');
+    if (!meta.parentNode) document.head.appendChild(meta);
   }, [dark]);
 
   useEffect(() => {
@@ -155,7 +160,7 @@ export function App() {
   if (!authed) {
     if (checkingSetup) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-[var(--bg)] text-xs text-[var(--text-secondary)]">
+        <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--bg)] text-xs text-[var(--text-secondary)]">
           Checking PocketBase startup status…
         </div>
       );
@@ -189,7 +194,7 @@ export function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--bg)] text-[var(--text-primary)]">
+    <div className="flex min-h-[100dvh] bg-[var(--bg)] text-[var(--text-primary)]">
       {/* Desktop Sidebar — second neutral layer, 4px grid, aligned icons */}
       <aside className="no-print hidden w-60 shrink-0 flex-col justify-between border-r border-[var(--border)] bg-[var(--sidebar-bg)] p-4 md:flex">
         <div>
@@ -275,8 +280,8 @@ export function App() {
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile Top Bar */}
-        <header className="no-print flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 md:hidden">
+        {/* Mobile Top Bar with safe-area notch support */}
+        <header className="no-print safe-top flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 pb-3 md:hidden">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
               <Snowflake className="h-4 w-4" strokeWidth={1.75} />
@@ -366,8 +371,11 @@ export function App() {
           )}
         </main>
 
-        {/* Mobile Bottom Navigation for one-handed scanning & store visits */}
-        <nav className="no-print fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)] px-1 py-1.5 md:hidden">
+        {/* Mobile Bottom Navigation — 44px+ touch targets & safe-area home-indicator padding */}
+        <nav
+          aria-label="Primary navigation"
+          className="no-print safe-bottom fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)]/95 px-1 pt-1.5 backdrop-blur-sm md:hidden"
+        >
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = tab === item.id;
@@ -376,11 +384,12 @@ export function App() {
                 key={item.id}
                 type="button"
                 onClick={() => setTab(item.id)}
-                className={`flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[11px] ${
+                aria-current={active ? 'page' : undefined}
+                className={`flex min-h-[44px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[11px] ${
                   active ? 'font-medium text-[var(--accent)]' : 'text-[var(--text-muted)]'
                 }`}
               >
-                <Icon className="h-4 w-4" strokeWidth={1.5} />
+                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 <span>{item.label.split(' ')[0]}</span>
               </button>
             );

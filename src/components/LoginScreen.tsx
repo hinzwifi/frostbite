@@ -43,7 +43,7 @@ export function LoginScreen({
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[var(--bg)] p-6">
+    <div className="relative flex min-h-[100dvh] items-center justify-center bg-[var(--bg)] p-6">
       <button
         type="button"
         onClick={onToggleDark}
