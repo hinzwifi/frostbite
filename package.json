@@ -11,9 +11,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "barcode-detector": "^3.2.5",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^4.4.0",
-    "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.12.3",
     "lucide-react": "^1.81.0",
     "pocketbase": "^0.29.0",
