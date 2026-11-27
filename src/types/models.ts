@@ -17,6 +17,8 @@ export interface Product {
   name: string;
   sku: string;
   barcode: string;
+  has_barcode?: boolean;
+  plu_code?: string;
   category: string;
   unit: string;
   supplier_name: string;

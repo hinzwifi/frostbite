@@ -78,6 +78,8 @@ const EMPTY_FORM = {
   name: '',
   sku: '',
   barcode: '',
+  has_barcode: true,
+  plu_code: '',
   category: 'Poultry',
   unit: 'kg',
   supplier_name: '',
@@ -160,6 +162,7 @@ export function CatalogPage({
       return (
         product.name.toLowerCase().includes(q) ||
         product.barcode.toLowerCase().includes(q) ||
+        (product.plu_code ?? '').toLowerCase().includes(q) ||
         product.sku.toLowerCase().includes(q) ||
         product.supplier_name.toLowerCase().includes(q)
       );
@@ -202,6 +205,8 @@ export function CatalogPage({
       name: p.name,
       sku: p.sku,
       barcode: p.barcode,
+      has_barcode: p.has_barcode !== false && Boolean(p.barcode),
+      plu_code: p.plu_code ?? '',
       category: p.category || 'Frozen',
       unit: p.unit,
       supplier_name: p.supplier_name,
@@ -247,7 +252,9 @@ export function CatalogPage({
         id: form.id || undefined,
         name: form.name.trim(),
         sku: form.sku.trim(),
-        barcode: form.barcode.trim(),
+        barcode: form.has_barcode ? form.barcode.trim() : '',
+        has_barcode: form.has_barcode,
+        plu_code: form.plu_code.trim(),
         category: form.category.trim() || 'Frozen',
         unit: form.unit.trim() || 'pack',
         supplier_name: form.supplier_name.trim(),
@@ -500,7 +507,12 @@ export function CatalogPage({
                       {m.product.name}
                     </div>
                     <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                      {m.product.category} · per {m.product.unit} · Score {m.favorabilityScore}/100
+                      {m.product.has_barcode === false || !m.product.barcode
+                        ? m.product.plu_code
+                          ? `PLU ${m.product.plu_code}`
+                          : 'No barcode'
+                        : m.product.barcode}{' '}
+                      · {m.product.category} · per {m.product.unit}
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
@@ -617,7 +629,13 @@ export function CatalogPage({
                       <td className="py-3 pl-4 pr-3">
                         <div className="font-medium text-[var(--text-primary)]">{m.product.name}</div>
                         <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
-                          <span className="font-mono-num">{m.product.barcode}</span>
+                          <span className="font-mono-num">
+                            {m.product.has_barcode === false || !m.product.barcode
+                              ? m.product.plu_code
+                                ? `PLU ${m.product.plu_code}`
+                                : 'Unlabelled'
+                              : m.product.barcode}
+                          </span>
                           <span>·</span>
                           <span>{m.product.category}</span>
                           <span>·</span>
@@ -969,30 +987,71 @@ export function CatalogPage({
                 />
               </div>
 
-              <div>
-                <label className="block font-medium text-[var(--text-secondary)]">Barcode</label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    value={form.barcode}
-                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                    data-barcode-target="true"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    className="min-h-[44px] flex-1 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setScanMode('form');
-                      setScannerOpen(true);
-                    }}
-                    aria-label="Scan barcode"
-                    className="flex h-[44px] w-[44px] items-center justify-center rounded-xl border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
-                  >
-                    <ScanBarcode className="h-4 w-4" strokeWidth={1.5} />
-                  </button>
+              {/* No-barcode toggle for loose / unlabelled frozen goods */}
+              <div className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] px-3.5 py-2.5">
+                <div>
+                  <div className="font-medium text-[var(--text-primary)]">No barcode (unlabelled item)</div>
+                  <div className="text-[11px] text-[var(--text-muted)]">
+                    Pins item to Quick-Tap &amp; PLU lookup — no sticker needed
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!form.has_barcode}
+                  onClick={() => setForm((f) => ({ ...f, has_barcode: !f.has_barcode }))}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    !form.has_barcode ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'
+                  }`}
+                >
+                  <span
+                    className={`block h-5 w-5 rounded-full bg-white shadow-xs transition-transform ${
+                      !form.has_barcode ? 'translate-x-5.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </button>
               </div>
+
+              {form.has_barcode ? (
+                <div>
+                  <label className="block font-medium text-[var(--text-secondary)]">Barcode</label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      value={form.barcode}
+                      onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                      data-barcode-target="true"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      className="min-h-[44px] flex-1 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanMode('form');
+                        setScannerOpen(true);
+                      }}
+                      aria-label="Scan barcode"
+                      className="flex h-[44px] w-[44px] items-center justify-center rounded-xl border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
+                    >
+                      <ScanBarcode className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block font-medium text-[var(--text-secondary)]">
+                    Short PLU speed-code (optional, e.g. 01, 02, 105)
+                  </label>
+                  <input
+                    value={form.plu_code}
+                    onChange={(e) => setForm({ ...form, plu_code: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="e.g. 01"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

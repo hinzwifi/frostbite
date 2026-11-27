@@ -29,10 +29,13 @@ export async function saveProduct(
   const existing = input.id ? await db.products.get(input.id) : undefined;
   const id = input.id ?? generatePbId();
 
+  const hasBarcode = input.has_barcode !== false;
   const product: Product = {
     ...input,
     id,
-    barcode: input.barcode.trim() || generateInternalBarcode(),
+    has_barcode: hasBarcode,
+    plu_code: (input.plu_code ?? '').trim(),
+    barcode: hasBarcode ? input.barcode.trim() || generateInternalBarcode() : '',
     sku: input.sku.trim() || `SKU-${id.slice(0, 6).toUpperCase()}`,
     created: existing?.created ?? now,
     updated: now,

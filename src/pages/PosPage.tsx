@@ -124,8 +124,12 @@ export function PosPage({ products, batches, stores, overrides, sales, saleItems
   };
 
   const handleScanCode = (code: string) => {
+    const clean = code.trim().toLowerCase();
     const found = products.find(
-      (p) => p.barcode.toLowerCase() === code.toLowerCase() || p.sku.toLowerCase() === code.toLowerCase()
+      (p) =>
+        p.barcode.toLowerCase() === clean ||
+        p.sku.toLowerCase() === clean ||
+        (p.plu_code && p.plu_code.toLowerCase() === clean)
     );
     if (found) addToCart(found);
   };
@@ -140,6 +144,7 @@ export function PosPage({ products, batches, stores, overrides, sales, saleItems
       return (
         p.name.toLowerCase().includes(q) ||
         p.barcode.toLowerCase().includes(q) ||
+        (p.plu_code ?? '').toLowerCase().includes(q) ||
         p.category.toLowerCase().includes(q)
       );
     });

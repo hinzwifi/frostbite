@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BarcodeDetector, prepareZXingModule } from 'barcode-detector/ponyfill';
 import { Flashlight, SwitchCamera, ZoomIn } from 'lucide-react';
 import { ModalSheet } from './ModalSheet';
@@ -15,6 +15,7 @@ interface Props {
   onClose: () => void;
   onDetected: (code: string) => void;
   title?: string;
+  headerRight?: ReactNode;
 }
 
 const SUPPORTED_FORMATS = [
@@ -51,7 +52,13 @@ function playScanBeep() {
   }
 }
 
-export function BarcodeScannerModal({ open, onClose, onDetected, title = 'Scan barcode' }: Props) {
+export function BarcodeScannerModal({
+  open,
+  onClose,
+  onDetected,
+  title = 'Scan barcode',
+  headerRight,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -290,8 +297,9 @@ export function BarcodeScannerModal({ open, onClose, onDetected, title = 'Scan b
       open={open}
       onClose={onClose}
       title={title}
-      subtitle="HD ZXing-WASM · supports small 1D retail & QR barcodes"
+      subtitle="HD ZXing-WASM · small 1D & QR barcodes"
       maxWidth="max-w-md"
+      headerRight={headerRight}
     >
       <div className="p-4 sm:p-5">
         {/* Live HD Camera Viewfinder */}
