@@ -1,11 +1,6 @@
 services:
   frostbite:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        # Empty = same-origin /api proxy via Nginx (ideal for Cloudflare Tunnel HTTPS)
-        VITE_POCKETBASE_URL: ""
+    image: ghcr.io/hinzwifi/frostbite:latest
     container_name: frostbite
     restart: unless-stopped
     extra_hosts:
