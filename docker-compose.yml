@@ -1,0 +1,14 @@
+services:
+  frostbite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Empty = same-origin /api proxy via Nginx (ideal for Cloudflare Tunnel HTTPS)
+        VITE_POCKETBASE_URL: ""
+    container_name: frostbite
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:80"

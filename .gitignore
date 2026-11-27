@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+pb_data/
+*.log
+.DS_Store
+.impeccable/screenshots/
+.impeccable/cache/
+.impeccable/questions/
+.impeccable/mocks/worlds/
+.gemini/

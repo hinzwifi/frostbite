@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --surface-subtle: #eef2f6;
+  --surface-hover: #e2e8f0;
+  --sidebar-bg: #f0f4f8;
+  --border: rgba(15, 23, 42, 0.10);
+  --border-strong: rgba(15, 23, 42, 0.18);
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #526071;
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --accent-subtle: rgba(2, 132, 199, 0.09);
+  --good: #047857;
+  --good-subtle: rgba(4, 120, 87, 0.10);
+  --warn: #b45309;
+  --warn-subtle: rgba(180, 83, 9, 0.11);
+  --danger: #b91c1c;
+  --danger-subtle: rgba(185, 28, 28, 0.10);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #0d1117;
+  --surface: #151b23;
+  --surface-subtle: #1c242f;
+  --surface-hover: #24303e;
+  --sidebar-bg: #11161d;
+  --border: rgba(226, 232, 240, 0.10);
+  --border-strong: rgba(226, 232, 240, 0.18);
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-subtle: rgba(56, 189, 248, 0.13);
+  --good: #34d399;
+  --good-subtle: rgba(52, 211, 153, 0.12);
+  --warn: #fbbf24;
+  --warn-subtle: rgba(251, 191, 36, 0.12);
+  --danger: #f87171;
+  --danger-subtle: rgba(248, 113, 113, 0.12);
+  --shadow-sm: none;
+}
+
+@layer base {
+  html {
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    caret-color: var(--accent);
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+    color: var(--text-primary);
+  }
+
+  a,
+  button {
+    text-underline-offset: 3px;
+  }
+
+  .font-mono-num {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
+
+/* Print layout for Delivery Receipts & Barcode Label Sheets */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-break-avoid {
+    break-inside: avoid;
+  }
+}
