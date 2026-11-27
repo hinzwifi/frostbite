@@ -6,6 +6,7 @@ import {
   Moon,
   Package,
   RefreshCw,
+  ScanBarcode,
   Settings,
   ShoppingCart,
   Snowflake,
@@ -13,6 +14,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { LoginScreen } from './components/LoginScreen';
+import { QuickScanHub } from './components/QuickScanHub';
 import { SetupWizard } from './components/SetupWizard';
 import {
   computeAllProductMetrics,
@@ -78,6 +80,9 @@ export function App() {
   const [bootstrapName, setBootstrapName] = useState<string>('Frostbite');
   const [tab, setTab] = useState<NavTab>('dashboard');
   const [dark, setDark] = useState<boolean>(getInitialDark);
+  const [quickScanOpen, setQuickScanOpen] = useState(false);
+  const [catalogFocusProductId, setCatalogFocusProductId] = useState<string | null>(null);
+  const [catalogNewBarcode, setCatalogNewBarcode] = useState<string | null>(null);
 
   const sync = useSyncStatus();
 
@@ -87,7 +92,7 @@ export function App() {
     // Sync mobile status bar color with active theme
     const meta = document.querySelector('meta[name="theme-color"]:not([media])') ?? document.createElement('meta');
     meta.setAttribute('name', 'theme-color');
-    meta.setAttribute('content', dark ? '#0d1117' : '#f6f8fa');
+    meta.setAttribute('content', dark ? '#0b0f14' : '#f2f4f7');
     if (!meta.parentNode) document.head.appendChild(meta);
   }, [dark]);
 
@@ -172,6 +177,11 @@ export function App() {
         weights,
       }),
     [products, batches, sales, saleItems, priceHistory, movements, weights]
+  );
+
+  const metricsById = useMemo(
+    () => new Map(metrics.map((m) => [m.product.id, m])),
+    [metrics]
   );
 
   if (!authed) {
@@ -297,8 +307,8 @@ export function App() {
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Sticky Mobile App Bar (Google / Reddit / FB pattern: brand/title left, sync + theme + settings right) */}
-        <header className="no-print safe-top sticky top-0 z-30 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/95 px-3.5 pb-2.5 backdrop-blur-md md:hidden">
+        {/* Sticky Apple Frosted Mobile App Bar */}
+        <header className="no-print apple-glass safe-top sticky top-0 z-30 flex items-center justify-between border-b border-[var(--border)] px-3.5 pb-2.5 md:hidden">
           <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
               <Snowflake className="h-4 w-4" strokeWidth={1.75} />
@@ -382,6 +392,12 @@ export function App() {
               saleItems={saleItems}
               stores={stores}
               thresholds={thresholds}
+              initialSelectedId={catalogFocusProductId}
+              initialNewBarcode={catalogNewBarcode}
+              onConsumeInitial={() => {
+                setCatalogFocusProductId(null);
+                setCatalogNewBarcode(null);
+              }}
             />
           )}
           {tab === 'stores' && (
@@ -416,12 +432,15 @@ export function App() {
           )}
         </main>
 
-        {/* 5-Tab Material/Reddit-Style Bottom Navigation Bar */}
+        {/* Apple Translucent Bottom Tab Bar with Elevated Center SCAN Action */}
         <nav
           aria-label="Primary navigation"
-          className="no-print safe-bottom fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--surface)]/95 px-1 pt-1.5 backdrop-blur-md md:hidden"
+          className="no-print apple-glass-bar safe-bottom fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 items-end px-1 pt-1.5 md:hidden"
         >
-          {MOBILE_TABS.map((item) => {
+          {[
+            { id: 'dashboard' as NavTab, label: 'Overview', icon: LayoutDashboard },
+            { id: 'catalog' as NavTab, label: 'Catalog', icon: Package },
+          ].map((item) => {
             const Icon = item.icon;
             const active = tab === item.id;
             return (
@@ -432,26 +451,71 @@ export function App() {
                 aria-current={active ? 'page' : undefined}
                 className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 text-[11px]"
               >
-                <span
-                  className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${
-                    active
-                      ? 'bg-[var(--accent-subtle)] text-[var(--accent)]'
-                      : 'text-[var(--text-muted)]'
-                  }`}
-                >
-                  <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2 : 1.5} />
+                <Icon
+                  className={`h-5 w-5 ${active ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}
+                  strokeWidth={active ? 2 : 1.5}
+                />
+                <span className={active ? 'font-medium text-[var(--accent)]' : 'text-[var(--text-muted)]'}>
+                  {item.label}
                 </span>
-                <span
-                  className={
-                    active ? 'font-medium text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
-                  }
-                >
+              </button>
+            );
+          })}
+
+          {/* Center Elevated SCAN Button */}
+          <div className="flex flex-col items-center justify-center pb-0.5">
+            <button
+              type="button"
+              onClick={() => setQuickScanOpen(true)}
+              aria-label="Scan barcode"
+              className="flex h-12 w-12 -translate-y-1.5 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-[0_6px_18px_rgba(0,122,255,0.38)] hover:bg-[var(--accent-hover)]"
+            >
+              <ScanBarcode className="h-5 w-5" strokeWidth={2} />
+            </button>
+            <span className="-mt-1 text-[11px] font-medium text-[var(--accent)]">Scan</span>
+          </div>
+
+          {[
+            { id: 'stores' as NavTab, label: 'Stores', icon: StoreIcon },
+            { id: 'optimizer' as NavTab, label: 'Plan', icon: Calculator },
+          ].map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setTab(item.id)}
+                aria-current={active ? 'page' : undefined}
+                className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 text-[11px]"
+              >
+                <Icon
+                  className={`h-5 w-5 ${active ? 'text-[var(--accent)]' : 'text-[var(--text-muted)]'}`}
+                  strokeWidth={active ? 2 : 1.5}
+                />
+                <span className={active ? 'font-medium text-[var(--accent)]' : 'text-[var(--text-muted)]'}>
                   {item.label}
                 </span>
               </button>
             );
           })}
         </nav>
+
+        <QuickScanHub
+          open={quickScanOpen}
+          onClose={() => setQuickScanOpen(false)}
+          products={products}
+          metricsById={metricsById}
+          onOpenPos={() => setTab('pos')}
+          onOpenProductInCatalog={(id) => {
+            setCatalogFocusProductId(id);
+            setTab('catalog');
+          }}
+          onCreateProductWithBarcode={(code) => {
+            setCatalogNewBarcode(code);
+            setTab('catalog');
+          }}
+        />
       </div>
     </div>
   );

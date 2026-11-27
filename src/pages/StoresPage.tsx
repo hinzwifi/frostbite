@@ -1,18 +1,22 @@
 import { useMemo, useState } from 'react';
 import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
   ClipboardCheck,
   PackagePlus,
   Pencil,
   Plus,
   SlidersHorizontal,
   Trash2,
-  X,
 } from 'lucide-react';
+import { ModalSheet } from '../components/ModalSheet';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { resolveStoreCut, resolveWholesalePrice } from '../lib/algorithms';
 import { daysUntil, formatDate, formatPhp } from '../lib/format';
 import {
   deleteStore,
+  deleteStoreOverride,
   placeStockToStore,
   reconcileStoreVisit,
   saveStore,
@@ -52,14 +56,16 @@ const EMPTY_STORE = {
 export function StoresPage({ stores, products, batches, overrides }: Props) {
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(stores[0]?.id ?? null);
   const [storeModalOpen, setStoreModalOpen] = useState(false);
+  const [storeStep, setStoreStep] = useState<1 | 2>(1);
   const [storeForm, setStoreForm] = useState(EMPTY_STORE);
 
   // Place stock modal
   const [placeOpen, setPlaceOpen] = useState(false);
   const [placeQtyMap, setPlaceQtyMap] = useState<Record<string, string>>({});
 
-  // Consignment visit reconciliation modal
+  // 2-step Consignment visit reconciliation modal
   const [visitOpen, setVisitOpen] = useState(false);
+  const [visitStep, setVisitStep] = useState<1 | 2>(1);
   const [remainingMap, setRemainingMap] = useState<Record<string, string>>({});
   const [amountCollected, setAmountCollected] = useState('');
   const [visitPaymentStatus, setVisitPaymentStatus] = useState<PaymentStatus>('paid');
@@ -100,6 +106,7 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
 
   const openAddStore = () => {
     setStoreForm(EMPTY_STORE);
+    setStoreStep(1);
     setStoreModalOpen(true);
   };
 
@@ -116,6 +123,7 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
       owner_notes: s.owner_notes,
       is_active: s.is_active,
     });
+    setStoreStep(1);
     setStoreModalOpen(true);
   };
 
@@ -161,6 +169,7 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
     setAmountCollected('');
     setVisitPaymentStatus('paid');
     setVisitNotes('');
+    setVisitStep(1);
     setVisitOpen(true);
   };
 
@@ -495,10 +504,20 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
                           className="flex items-center justify-between rounded-lg bg-[var(--surface-subtle)] px-3 py-2 text-xs"
                         >
                           <span className="font-medium text-[var(--text-primary)]">{p.name}</span>
-                          <span className="font-mono-num text-[var(--text-secondary)]">
-                            Wholesale {formatPhp(resolveWholesalePrice(p, ov))} · Cut{' '}
-                            {formatPhp(resolveStoreCut(p, selectedStore, ov))}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono-num text-[var(--text-secondary)]">
+                              WS {formatPhp(resolveWholesalePrice(p, ov))} · Cut{' '}
+                              {formatPhp(resolveStoreCut(p, selectedStore, ov))}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label={`Remove override for ${p.name}`}
+                              onClick={() => void deleteStoreOverride(ov.id)}
+                              className="rounded p-1 text-[var(--text-muted)] hover:text-[var(--danger)]"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -510,23 +529,28 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
         </div>
       </div>
 
-      {/* Add/Edit Store Modal */}
-      {storeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] p-5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h2 className="text-[15px] font-medium text-[var(--text-primary)]">
-                {storeForm.id ? 'Edit partner store' : 'Add partner store'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setStoreModalOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveStore} className="mt-4 space-y-3 text-xs">
+      {/* 2-Step Add/Edit Partner Store Sheet */}
+      <ModalSheet
+        open={storeModalOpen}
+        onClose={() => setStoreModalOpen(false)}
+        title={storeForm.id ? 'Edit partner store' : 'New partner store'}
+        subtitle={`Step ${storeStep} of 2 · ${storeStep === 1 ? 'Store details' : 'Consignment terms'}`}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveStore} className="space-y-4 p-5 text-xs">
+          <div className="grid grid-cols-2 gap-1.5">
+            {[1, 2].map((s) => (
+              <div
+                key={s}
+                className={`h-1 rounded-full ${
+                  storeStep >= s ? 'bg-[var(--accent)]' : 'bg-[var(--surface-subtle)]'
+                }`}
+              />
+            ))}
+          </div>
+
+          {storeStep === 1 ? (
+            <div className="space-y-3">
               <div>
                 <label className="block font-medium text-[var(--text-secondary)]">Store name</label>
                 <input
@@ -534,7 +558,7 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
                   value={storeForm.name}
                   onChange={(e) => setStoreForm({ ...storeForm, name: e.target.value })}
                   placeholder="e.g. Aling Nena Sari-Sari Store"
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -543,15 +567,17 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
                   <input
                     value={storeForm.contact_name}
                     onChange={(e) => setStoreForm({ ...storeForm, contact_name: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   />
                 </div>
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)]">Phone</label>
                   <input
+                    type="tel"
+                    inputMode="tel"
                     value={storeForm.phone}
                     onChange={(e) => setStoreForm({ ...storeForm, phone: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   />
                 </div>
               </div>
@@ -560,384 +586,401 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
                 <input
                   value={storeForm.address}
                   onChange={(e) => setStoreForm({ ...storeForm, address: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">Mode</label>
-                  <select
-                    value={storeForm.mode}
-                    onChange={(e) => setStoreForm({ ...storeForm, mode: e.target.value as StoreMode })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-2 text-sm text-[var(--text-primary)]"
-                  >
-                    <option value="consignment">Consignment</option>
-                    <option value="hybrid">Hybrid</option>
-                    <option value="wholesale">Wholesale</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">Cut (₱/unit)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    value={storeForm.default_cut_per_unit}
-                    onChange={(e) => setStoreForm({ ...storeForm, default_cut_per_unit: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">Visit cycle (d)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={storeForm.visit_cycle_days}
-                    onChange={(e) => setStoreForm({ ...storeForm, visit_cycle_days: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setStoreModalOpen(false)}
-                  className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-xs font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
-                >
-                  Save store
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Place Stock Modal */}
-      {placeOpen && selectedStore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg">
-            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
-              <div>
-                <h2 className="text-[15px] font-medium text-[var(--text-primary)]">
-                  Place FEFO stock at {selectedStore.name}
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Earliest-expiring main freezer batches are transferred first
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPlaceOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
             </div>
-            <form onSubmit={handlePlaceStock} className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto divide-y divide-[var(--border)] px-5">
-                {products.map((p) => {
-                  const mainAvail = batches
-                    .filter((b) => b.product === p.id && b.location_type === 'main' && b.status === 'active')
-                    .reduce((s, b) => s + b.remaining_qty, 0);
-                  return (
-                    <div key={p.id} className="flex items-center justify-between gap-3 py-3 text-xs">
-                      <div>
-                        <div className="font-medium text-[var(--text-primary)]">{p.name}</div>
-                        <div className="font-mono-num text-[11px] text-[var(--text-muted)]">
-                          Main freezer: {mainAvail} {p.unit} · SRP {formatPhp(p.srp_price)}
-                        </div>
-                      </div>
-                      <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        placeholder="0"
-                        value={placeQtyMap[p.id] ?? ''}
-                        onChange={(e) => setPlaceQtyMap({ ...placeQtyMap, [p.id]: e.target.value })}
-                        className="w-24 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-1.5 text-right font-mono-num text-sm text-[var(--text-primary)]"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex justify-end gap-2 border-t border-[var(--border)] px-5 py-4">
-                <button
-                  type="button"
-                  onClick={() => setPlaceOpen(false)}
-                  className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-xs font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
-                >
-                  Confirm placement
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Consignment Visit Reconciliation Modal */}
-      {visitOpen && selectedStore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg">
-            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+          ) : (
+            <div className="space-y-3">
               <div>
-                <h2 className="text-[15px] font-medium text-[var(--text-primary)]">
-                  Count &amp; settle visit — {selectedStore.name}
-                </h2>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Enter remaining freezer count per batch to calculate sold qty, store commission, and cash remittance
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setVisitOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
-
-            <form onSubmit={handleConfirmVisit} className="flex flex-1 flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-5 py-4">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
-                      <th className="py-2 pr-2 font-medium">Product</th>
-                      <th className="py-2 px-2 text-right font-medium">Placed</th>
-                      <th className="py-2 px-2 text-right font-medium">Remaining</th>
-                      <th className="py-2 px-2 text-right font-medium">Sold</th>
-                      <th className="py-2 px-2 text-right font-medium">Store cut</th>
-                      <th className="py-2 pl-2 text-right font-medium">Due to you</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border)]">
-                    {visitPreview.rows.map((r) => (
-                      <tr key={r.batch.id}>
-                        <td className="py-2.5 pr-2">
-                          <div className="font-medium text-[var(--text-primary)]">{r.product.name}</div>
-                          <div className="font-mono-num text-[11px] text-[var(--text-muted)]">
-                            SRP {formatPhp(r.sellPrice)} · Cut {formatPhp(r.storeCut)}
-                          </div>
-                        </td>
-                        <td className="py-2.5 px-2 text-right font-mono-num">{r.batch.remaining_qty}</td>
-                        <td className="py-2.5 px-2 text-right">
-                          <input
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            max={r.batch.remaining_qty}
-                            value={remainingMap[r.batch.id] ?? String(r.batch.remaining_qty)}
-                            onChange={(e) =>
-                              setRemainingMap({ ...remainingMap, [r.batch.id]: e.target.value })
-                            }
-                            className="w-20 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-right font-mono-num text-xs text-[var(--text-primary)]"
-                          />
-                        </td>
-                        <td className="py-2.5 px-2 text-right font-mono-num font-medium text-[var(--accent)]">
-                          {r.soldQty}
-                        </td>
-                        <td className="py-2.5 px-2 text-right font-mono-num text-[var(--good)]">
-                          {formatPhp(r.lineCut)}
-                        </td>
-                        <td className="py-2.5 pl-2 text-right font-mono-num font-medium text-[var(--text-primary)]">
-                          {formatPhp(r.lineDue)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-[var(--surface-subtle)] p-4 text-xs">
-                  <div>
-                    <div className="text-[var(--text-muted)]">Store commission</div>
-                    <div className="mt-1 font-mono-num text-base font-semibold text-[var(--good)]">
-                      {formatPhp(visitPreview.totalStoreCut)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--text-muted)]">Remittance due to you</div>
-                    <div className="mt-1 font-mono-num text-base font-semibold text-[var(--text-primary)]">
-                      {formatPhp(visitPreview.totalOwnerDue)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[var(--text-muted)]">Your net profit</div>
-                    <div className="mt-1 font-mono-num text-base font-semibold text-[var(--accent)]">
-                      {formatPhp(visitPreview.totalProfit)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 text-xs">
-                  <div>
-                    <label className="block font-medium text-[var(--text-secondary)]">Cash collected (₱)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder={String(visitPreview.totalOwnerDue)}
-                      value={amountCollected}
-                      onChange={(e) => setAmountCollected(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-[var(--text-secondary)]">Payment status</label>
-                    <select
-                      value={visitPaymentStatus}
-                      onChange={(e) => setVisitPaymentStatus(e.target.value as PaymentStatus)}
-                      className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
-                    >
-                      <option value="paid">Paid</option>
-                      <option value="partial">Partial</option>
-                      <option value="unpaid">Unpaid</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-medium text-[var(--text-secondary)]">Visit note</label>
-                    <input
-                      value={visitNotes}
-                      onChange={(e) => setVisitNotes(e.target.value)}
-                      placeholder="Optional"
-                      className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-[var(--border)] px-5 py-4">
-                <button
-                  type="button"
-                  onClick={() => setVisitOpen(false)}
-                  className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-xs font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
-                >
-                  Complete settlement &amp; receipt
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Override Modal */}
-      {overrideOpen && selectedStore && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] p-5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h2 className="text-[15px] font-medium text-[var(--text-primary)]">
-                Custom override for {selectedStore.name}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setOverrideOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-secondary)]"
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveOverride} className="mt-4 space-y-3 text-xs">
-              <div>
-                <label className="block font-medium text-[var(--text-secondary)]">Product</label>
+                <label className="block font-medium text-[var(--text-secondary)]">Supply mode</label>
                 <select
-                  required
-                  value={ovProductId}
-                  onChange={(e) => setOvProductId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+                  value={storeForm.mode}
+                  onChange={(e) => setStoreForm({ ...storeForm, mode: e.target.value as StoreMode })}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 >
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (Wholesale {formatPhp(p.wholesale_price)})
-                    </option>
-                  ))}
+                  <option value="consignment">Consignment (pay on sold)</option>
+                  <option value="hybrid">Hybrid (consignment + wholesale)</option>
+                  <option value="wholesale">Direct wholesale</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">
-                    Custom wholesale (₱)
-                  </label>
+                  <label className="block font-medium text-[var(--text-secondary)]">Default cut (₱/unit)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    inputMode="decimal"
+                    step="0.5"
                     min="0"
-                    value={ovWholesale}
-                    onChange={(e) => setOvWholesale(e.target.value)}
-                    placeholder="0 = default"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+                    value={storeForm.default_cut_per_unit}
+                    onChange={(e) => setStoreForm({ ...storeForm, default_cut_per_unit: e.target.value })}
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
                 <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">
-                    Custom store cut (₱)
-                  </label>
+                  <label className="block font-medium text-[var(--text-secondary)]">Visit cycle (days)</label>
                   <input
                     type="number"
-                    step="0.5"
-                    min="0"
-                    value={ovCut}
-                    onChange={(e) => setOvCut(e.target.value)}
-                    placeholder="0 = default"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+                    inputMode="numeric"
+                    min="1"
+                    value={storeForm.visit_cycle_days}
+                    onChange={(e) => setStoreForm({ ...storeForm, visit_cycle_days: e.target.value })}
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
               </div>
               <div>
-                <label className="block font-medium text-[var(--text-secondary)]">
-                  Store favorability boost (-20 to +20)
-                </label>
+                <label className="block font-medium text-[var(--text-secondary)]">Owner notes</label>
                 <input
-                  type="number"
-                  min="-20"
-                  max="20"
-                  value={ovBoost}
-                  onChange={(e) => setOvBoost(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+                  value={storeForm.owner_notes}
+                  onChange={(e) => setStoreForm({ ...storeForm, owner_notes: e.target.value })}
+                  placeholder="Optional notes"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                 />
               </div>
-              <div>
-                <label className="block font-medium text-[var(--text-secondary)]">Note</label>
-                <input
-                  value={ovNotes}
-                  onChange={(e) => setOvNotes(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setOverrideOpen(false)}
-                  className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-xs font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white"
-                >
-                  Save override
-                </button>
-              </div>
-            </form>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
+            {storeStep === 2 ? (
+              <button
+                type="button"
+                onClick={() => setStoreStep(1)}
+                className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-[var(--border-strong)] px-3.5 py-2 text-xs font-medium"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Back
+              </button>
+            ) : (
+              <div />
+            )}
+
+            {storeStep === 1 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!storeForm.name.trim()) return;
+                  setStoreStep(2);
+                }}
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white"
+              >
+                Next
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+              >
+                <Check className="h-3.5 w-3.5" strokeWidth={2} />
+                Save store
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        </form>
+      </ModalSheet>
+
+      {/* Place Stock Bottom Sheet */}
+      <ModalSheet
+        open={placeOpen && Boolean(selectedStore)}
+        onClose={() => setPlaceOpen(false)}
+        title={`Place FEFO stock — ${selectedStore?.name ?? ''}`}
+        subtitle="Earliest-expiring main freezer batches transfer first"
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handlePlaceStock} className="p-5">
+          <div className="divide-y divide-[var(--border)]">
+            {products.map((p) => {
+              const mainAvail = batches
+                .filter((b) => b.product === p.id && b.location_type === 'main' && b.status === 'active')
+                .reduce((s, b) => s + b.remaining_qty, 0);
+              return (
+                <div key={p.id} className="flex items-center justify-between gap-3 py-3 text-xs">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-[var(--text-primary)]">{p.name}</div>
+                    <div className="font-mono-num text-[11px] text-[var(--text-muted)]">
+                      Main: {mainAvail} {p.unit} · SRP {formatPhp(p.srp_price)}
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.5"
+                    min="0"
+                    placeholder="0"
+                    value={placeQtyMap[p.id] ?? ''}
+                    onChange={(e) => setPlaceQtyMap({ ...placeQtyMap, [p.id]: e.target.value })}
+                    className="min-h-[40px] w-24 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-1.5 text-right font-mono-num text-sm text-[var(--text-primary)]"
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+            <button
+              type="button"
+              onClick={() => setPlaceOpen(false)}
+              className="min-h-[42px] rounded-xl border border-[var(--border-strong)] px-4 py-2 text-xs font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="min-h-[42px] rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+            >
+              Confirm placement
+            </button>
+          </div>
+        </form>
+      </ModalSheet>
+
+      {/* 2-Step Consignment Visit Settlement Sheet */}
+      <ModalSheet
+        open={visitOpen && Boolean(selectedStore)}
+        onClose={() => setVisitOpen(false)}
+        title={`Settle visit — ${selectedStore?.name ?? ''}`}
+        subtitle={`Step ${visitStep} of 2 · ${
+          visitStep === 1 ? 'Count remaining freezer stock' : 'Commission & cash collection'
+        }`}
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleConfirmVisit} className="space-y-4 p-5 text-xs">
+          <div className="grid grid-cols-2 gap-1.5">
+            {[1, 2].map((s) => (
+              <div
+                key={s}
+                className={`h-1 rounded-full ${
+                  visitStep >= s ? 'bg-[var(--accent)]' : 'bg-[var(--surface-subtle)]'
+                }`}
+              />
+            ))}
+          </div>
+
+          {visitStep === 1 ? (
+            <div className="divide-y divide-[var(--border)]">
+              {visitPreview.rows.map((r) => (
+                <div key={r.batch.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-[var(--text-primary)]">{r.product.name}</div>
+                    <div className="font-mono-num text-[11px] text-[var(--text-muted)]">
+                      Placed {r.batch.remaining_qty} · Sold{' '}
+                      <span className="font-semibold text-[var(--accent)]">{r.soldQty}</span> · Due{' '}
+                      {formatPhp(r.lineDue)}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <label className="block text-[11px] text-[var(--text-muted)]">Remaining</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0"
+                      max={r.batch.remaining_qty}
+                      value={remainingMap[r.batch.id] ?? String(r.batch.remaining_qty)}
+                      onChange={(e) =>
+                        setRemainingMap({ ...remainingMap, [r.batch.id]: e.target.value })
+                      }
+                      className="mt-0.5 min-h-[40px] w-24 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-1 text-right font-mono-num text-sm text-[var(--text-primary)]"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-2.5 rounded-2xl bg-[var(--surface-subtle)] p-4">
+                <div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Store cut</div>
+                  <div className="mt-1 font-mono-num text-base font-semibold text-[var(--good)]">
+                    {formatPhp(visitPreview.totalStoreCut)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Due to you</div>
+                  <div className="mt-1 font-mono-num text-base font-semibold text-[var(--text-primary)]">
+                    {formatPhp(visitPreview.totalOwnerDue)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Net profit</div>
+                  <div className="mt-1 font-mono-num text-base font-semibold text-[var(--accent)]">
+                    {formatPhp(visitPreview.totalProfit)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block font-medium text-[var(--text-secondary)]">Cash collected (₱)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    placeholder={String(visitPreview.totalOwnerDue)}
+                    value={amountCollected}
+                    onChange={(e) => setAmountCollected(e.target.value)}
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-[var(--text-secondary)]">Payment status</label>
+                  <select
+                    value={visitPaymentStatus}
+                    onChange={(e) => setVisitPaymentStatus(e.target.value as PaymentStatus)}
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+                  >
+                    <option value="paid">Paid</option>
+                    <option value="partial">Partial</option>
+                    <option value="unpaid">Unpaid</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Visit note</label>
+                <input
+                  value={visitNotes}
+                  onChange={(e) => setVisitNotes(e.target.value)}
+                  placeholder="Optional"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
+            {visitStep === 2 ? (
+              <button
+                type="button"
+                onClick={() => setVisitStep(1)}
+                className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-[var(--border-strong)] px-3.5 py-2 text-xs font-medium"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Back
+              </button>
+            ) : (
+              <div className="font-mono-num text-xs text-[var(--text-secondary)]">
+                Due: <span className="font-semibold text-[var(--text-primary)]">{formatPhp(visitPreview.totalOwnerDue)}</span>
+              </div>
+            )}
+
+            {visitStep === 1 ? (
+              <button
+                type="button"
+                onClick={() => setVisitStep(2)}
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white"
+              >
+                Review settlement
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+              >
+                <Check className="h-3.5 w-3.5" strokeWidth={2} />
+                Complete &amp; receipt
+              </button>
+            )}
+          </div>
+        </form>
+      </ModalSheet>
+
+      {/* Custom Override Bottom Sheet */}
+      <ModalSheet
+        open={overrideOpen && Boolean(selectedStore)}
+        onClose={() => setOverrideOpen(false)}
+        title={`Custom override — ${selectedStore?.name ?? ''}`}
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveOverride} className="space-y-3 p-5 text-xs">
+          <div>
+            <label className="block font-medium text-[var(--text-secondary)]">Product</label>
+            <select
+              required
+              value={ovProductId}
+              onChange={(e) => setOvProductId(e.target.value)}
+              className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+            >
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (Wholesale {formatPhp(p.wholesale_price)})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-medium text-[var(--text-secondary)]">
+                Custom wholesale (₱)
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={ovWholesale}
+                onChange={(e) => setOvWholesale(e.target.value)}
+                placeholder="0 = default"
+                className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+              />
+            </div>
+            <div>
+              <label className="block font-medium text-[var(--text-secondary)]">
+                Custom store cut (₱)
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.5"
+                min="0"
+                value={ovCut}
+                onChange={(e) => setOvCut(e.target.value)}
+                placeholder="0 = default"
+                className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block font-medium text-[var(--text-secondary)]">
+              Store favorability boost (-20 to +20)
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min="-20"
+              max="20"
+              value={ovBoost}
+              onChange={(e) => setOvBoost(e.target.value)}
+              className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-[var(--text-secondary)]">Note</label>
+            <input
+              value={ovNotes}
+              onChange={(e) => setOvNotes(e.target.value)}
+              className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+            <button
+              type="button"
+              onClick={() => setOverrideOpen(false)}
+              className="min-h-[42px] rounded-xl border border-[var(--border-strong)] px-4 py-2 text-xs font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="min-h-[42px] rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white"
+            >
+              Save override
+            </button>
+          </div>
+        </form>
+      </ModalSheet>
 
       <ReceiptModal
         sale={receiptData?.sale ?? null}

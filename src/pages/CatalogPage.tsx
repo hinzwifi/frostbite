@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CartesianGrid,
   Legend,
@@ -10,6 +10,9 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
   Download,
   PackagePlus,
   Pencil,
@@ -22,6 +25,7 @@ import {
 } from 'lucide-react';
 import { BarcodeLabelSheet } from '../components/BarcodeLabelSheet';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
+import { ModalSheet } from '../components/ModalSheet';
 import { useBarcodeWedge } from '../hooks/useBarcodeWedge';
 import {
   buildProductVelocityChart,
@@ -36,9 +40,11 @@ import {
   todayIsoDate,
 } from '../lib/format';
 import {
+  deleteBatch,
   deleteProduct,
   receiveBatch,
   saveProduct,
+  updateBatch,
   updateBatchClearance,
   writeOffBatch,
 } from '../lib/inventory';
@@ -62,6 +68,9 @@ interface Props {
   saleItems: SaleItem[];
   stores: Store[];
   thresholds: ExpiryThresholds;
+  initialSelectedId?: string | null;
+  initialNewBarcode?: string | null;
+  onConsumeInitial?: () => void;
 }
 
 const EMPTY_FORM = {
@@ -92,6 +101,9 @@ export function CatalogPage({
   saleItems,
   stores,
   thresholds,
+  initialSelectedId,
+  initialNewBarcode,
+  onConsumeInitial,
 }: Props) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -100,8 +112,9 @@ export function CatalogPage({
   const [scanMode, setScanMode] = useState<'lookup' | 'form'>('lookup');
   const [labelProducts, setLabelProducts] = useState<Product[] | null>(null);
 
-  // Add/Edit modal
+  // 3-step Add/Edit product wizard
   const [formOpen, setFormOpen] = useState(false);
+  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
@@ -111,6 +124,25 @@ export function CatalogPage({
   const [rxBuy, setRxBuy] = useState('');
   const [rxExpiry, setRxExpiry] = useState('');
   const [rxUpdateBuy, setRxUpdateBuy] = useState(true);
+
+  // Edit batch CRUD modal
+  const [editBatchTarget, setEditBatchTarget] = useState<Batch | null>(null);
+  const [ebQty, setEbQty] = useState('');
+  const [ebBuy, setEbBuy] = useState('');
+  const [ebExpiry, setEbExpiry] = useState('');
+  const [ebClearance, setEbClearance] = useState('');
+
+  useEffect(() => {
+    if (initialSelectedId) {
+      setSelectedId(initialSelectedId);
+      onConsumeInitial?.();
+    } else if (initialNewBarcode) {
+      setForm({ ...EMPTY_FORM, barcode: initialNewBarcode });
+      setFormStep(1);
+      setFormOpen(true);
+      onConsumeInitial?.();
+    }
+  }, [initialSelectedId, initialNewBarcode, onConsumeInitial]);
 
   const metricsById = useMemo(() => new Map(metrics.map((m) => [m.product.id, m])), [metrics]);
   const storesById = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
@@ -160,6 +192,7 @@ export function CatalogPage({
 
   const openAdd = () => {
     setForm({ ...EMPTY_FORM, barcode: generateInternalBarcode() });
+    setFormStep(1);
     setFormOpen(true);
   };
 
@@ -182,7 +215,28 @@ export function CatalogPage({
       notes: p.notes,
       is_active: p.is_active,
     });
+    setFormStep(1);
     setFormOpen(true);
+  };
+
+  const openEditBatch = (b: Batch) => {
+    setEditBatchTarget(b);
+    setEbQty(String(b.remaining_qty));
+    setEbBuy(String(b.buy_price));
+    setEbExpiry(b.expiry_date || '');
+    setEbClearance(String(b.clearance_price || 0));
+  };
+
+  const handleSaveBatchEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editBatchTarget) return;
+    await updateBatch(editBatchTarget, {
+      remaining_qty: Number(ebQty) || 0,
+      buy_price: Number(ebBuy) || 0,
+      expiry_date: ebExpiry,
+      clearance_price: Number(ebClearance) || 0,
+    });
+    setEditBatchTarget(null);
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -843,10 +897,28 @@ export function CatalogPage({
                               )}
                               <button
                                 type="button"
+                                onClick={() => openEditBatch(b)}
+                                className="text-[11px] font-medium text-[var(--accent)] hover:underline"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => void writeOffBatch(b)}
-                                className="text-[11px] text-[var(--danger)] hover:underline"
+                                className="text-[11px] text-[var(--warn)] hover:underline"
                               >
                                 Write off
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(`Delete batch ${b.batch_code}?`)) {
+                                    void deleteBatch(b.id);
+                                  }
+                                }}
+                                className="text-[11px] text-[var(--danger)] hover:underline"
+                              >
+                                Delete
                               </button>
                             </div>
                           </td>
@@ -861,286 +933,440 @@ export function CatalogPage({
         </div>
       )}
 
-      {/* Add/Edit Product Modal */}
-      {formOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] p-5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h2 className="text-[15px] font-medium text-[var(--text-primary)]">
-                {form.id ? 'Edit product' : 'Add frozen product'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setFormOpen(false)}
-                className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
-              >
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
+      {/* 3-Step Apple Bottom-Sheet Add/Edit Product Wizard */}
+      <ModalSheet
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={form.id ? 'Edit product' : 'New frozen product'}
+        subtitle={`Step ${formStep} of 3 · ${
+          formStep === 1 ? 'Basics & barcode' : formStep === 2 ? 'Pricing & margin' : 'Alerts & notes'
+        }`}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleSaveProduct} className="space-y-4 p-5 text-xs">
+          {/* Step progress bar */}
+          <div className="grid grid-cols-3 gap-1.5">
+            {[1, 2, 3].map((s) => (
+              <div
+                key={s}
+                className={`h-1 rounded-full ${
+                  formStep >= s ? 'bg-[var(--accent)]' : 'bg-[var(--surface-subtle)]'
+                }`}
+              />
+            ))}
+          </div>
 
-            <form onSubmit={handleSaveProduct} className="mt-4 space-y-4 text-xs">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="block font-medium text-[var(--text-secondary)]">Product name</label>
+          {formStep === 1 && (
+            <div className="space-y-3">
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Product name</label>
+                <input
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Dressed Chicken, Pork Sisig 500g"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Barcode</label>
+                <div className="mt-1 flex gap-2">
                   <input
-                    required
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="e.g. Dressed Chicken, Pork Sisig 500g"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    value={form.barcode}
+                    onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                    data-barcode-target="true"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    className="min-h-[44px] flex-1 rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScanMode('form');
+                      setScannerOpen(true);
+                    }}
+                    aria-label="Scan barcode"
+                    className="flex h-[44px] w-[44px] items-center justify-center rounded-xl border border-[var(--border-strong)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
+                  >
+                    <ScanBarcode className="h-4 w-4" strokeWidth={1.5} />
+                  </button>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">Barcode</label>
-                  <div className="mt-1 flex gap-1.5">
-                    <input
-                      value={form.barcode}
-                      onChange={(e) => setForm({ ...form, barcode: e.target.value })}
-                      data-barcode-target="true"
-                      className="flex-1 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setScanMode('form');
-                        setScannerOpen(true);
-                      }}
-                      className="rounded-lg border border-[var(--border-strong)] px-2.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
-                      title="Scan barcode"
-                    >
-                      <ScanBarcode className="h-4 w-4" strokeWidth={1.5} />
-                    </button>
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)]">Unit</label>
                   <input
                     required
                     value={form.unit}
                     onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                    placeholder="kg, pack, pc, box"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    placeholder="kg, pack, pc"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   />
                 </div>
-
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)]">Category</label>
                   <input
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    placeholder="Poultry, Pork, Processed, Seafood"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    placeholder="Poultry, Pork, Processed"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">Supplier name</label>
-                  <input
-                    value={form.supplier_name}
-                    onChange={(e) => setForm({ ...form, supplier_name: e.target.value })}
-                    placeholder="Primary supplier"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
-                  />
-                </div>
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Supplier name</label>
+                <input
+                  value={form.supplier_name}
+                  onChange={(e) => setForm({ ...form, supplier_name: e.target.value })}
+                  placeholder="Primary supplier"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                />
+              </div>
+            </div>
+          )}
 
+          {formStep === 2 && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)]">Buy cost (₱)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.01"
                     min="0"
                     required
                     value={form.buy_price}
                     onChange={(e) => setForm({ ...form, buy_price: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
-
                 <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">Wholesale price (₱)</label>
+                  <label className="block font-medium text-[var(--text-secondary)]">SRP retail (₱)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={form.wholesale_price}
-                    onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">SRP retail price (₱)</label>
-                  <input
-                    type="number"
+                    inputMode="decimal"
                     step="0.01"
                     min="0"
                     required
                     value={form.srp_price}
                     onChange={(e) => setForm({ ...form, srp_price: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
-
                 <div>
-                  <label className="block font-medium text-[var(--text-secondary)]">
-                    Default store cut (₱/unit)
-                  </label>
+                  <label className="block font-medium text-[var(--text-secondary)]">Wholesale (₱)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={form.wholesale_price}
+                    onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })}
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-[var(--text-secondary)]">Store cut (₱/unit)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
                     step="0.5"
                     min="0"
                     value={form.default_store_cut}
                     onChange={(e) => setForm({ ...form, default_store_cut: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
+              </div>
 
+              {/* Live margin preview */}
+              <div className="grid grid-cols-2 gap-3 rounded-2xl bg-[var(--surface-subtle)] p-3.5">
+                <div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Direct SRP profit</div>
+                  <div className="mt-0.5 font-mono-num text-sm font-semibold text-[var(--good)]">
+                    {formatPhp((Number(form.srp_price) || 0) - (Number(form.buy_price) || 0))} / {form.unit || 'unit'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-[var(--text-muted)]">Consignment profit</div>
+                  <div className="mt-0.5 font-mono-num text-sm font-semibold text-[var(--accent)]">
+                    {formatPhp(
+                      (Number(form.srp_price) || 0) -
+                        (Number(form.default_store_cut) || 0) -
+                        (Number(form.buy_price) || 0)
+                    )}{' '}
+                    / {form.unit || 'unit'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {formStep === 3 && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)]">Min stock alert</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     value={form.min_stock_level}
                     onChange={(e) => setForm({ ...form, min_stock_level: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
-
                 <div>
                   <label className="block font-medium text-[var(--text-secondary)]">
-                    Owner favorability boost (-20 to +20)
+                    Favorability boost (-20..+20)
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="-20"
                     max="20"
                     value={form.owner_favorability_boost}
                     onChange={(e) => setForm({ ...form, owner_favorability_boost: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-medium text-[var(--text-secondary)]">Owner notes</label>
-                  <input
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    placeholder="Optional notes (e.g. fast seller on weekends)"
-                    className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                    className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Owner notes</label>
+                <input
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder="Optional notes (e.g. fast seller on weekends)"
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
+            <div>
+              {form.id && formStep === 1 && (
                 <button
                   type="button"
-                  onClick={() => setFormOpen(false)}
-                  className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
+                  onClick={() => {
+                    if (window.confirm(`Delete ${form.name}?`)) {
+                      void deleteProduct(form.id);
+                      setFormOpen(false);
+                      if (selectedId === form.id) setSelectedId(null);
+                    }
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger-subtle)]"
                 >
-                  Cancel
+                  Delete
                 </button>
+              )}
+              {formStep > 1 && (
                 <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                  type="button"
+                  onClick={() => setFormStep((s) => (s === 3 ? 2 : 1))}
+                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-[var(--border-strong)] px-3.5 py-2 text-xs font-medium text-[var(--text-primary)]"
                 >
-                  {saving ? 'Saving' : 'Save product'}
+                  <ArrowLeft className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Back
                 </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              )}
+            </div>
 
-      {/* Receive Batch Modal */}
-      {receiveTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-strong)] bg-[var(--surface)] p-5 shadow-lg">
-            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <div>
-                <h2 className="text-[15px] font-medium text-[var(--text-primary)]">Receive FEFO batch</h2>
-                <p className="text-xs text-[var(--text-secondary)]">{receiveTarget.name}</p>
-              </div>
+            {formStep < 3 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (formStep === 1 && !form.name.trim()) return;
+                  setFormStep((s) => (s === 1 ? 2 : 3));
+                }}
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+              >
+                Next
+                <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-60"
+              >
+                <Check className="h-3.5 w-3.5" strokeWidth={2} />
+                {saving ? 'Saving' : 'Save product'}
+              </button>
+            )}
+          </div>
+        </form>
+      </ModalSheet>
+
+      {/* Receive FEFO Batch Bottom Sheet */}
+      <ModalSheet
+        open={Boolean(receiveTarget)}
+        onClose={() => setReceiveTarget(null)}
+        title="Receive FEFO batch"
+        subtitle={receiveTarget?.name}
+        maxWidth="max-w-md"
+      >
+        {receiveTarget && (
+          <form onSubmit={handleReceiveSubmit} className="space-y-3 p-5 text-xs">
+            <div>
+              <label className="block font-medium text-[var(--text-secondary)]">
+                Quantity ({receiveTarget.unit})
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                required
+                value={rxQty}
+                onChange={(e) => setRxQty(e.target.value)}
+                className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-[var(--text-secondary)]">Batch buy price (₱)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                required
+                value={rxBuy}
+                onChange={(e) => setRxBuy(e.target.value)}
+                className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-[var(--text-secondary)]">Expiration date</label>
+              <input
+                type="date"
+                required
+                value={rxExpiry}
+                onChange={(e) => setRxExpiry(e.target.value)}
+                className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+              />
+            </div>
+
+            <label className="flex items-center gap-2 pt-1 text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={rxUpdateBuy}
+                onChange={(e) => setRxUpdateBuy(e.target.checked)}
+              />
+              Update product buy cost &amp; log price history if changed
+            </label>
+
+            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
               <button
                 type="button"
                 onClick={() => setReceiveTarget(null)}
-                className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
+                className="min-h-[42px] rounded-xl border border-[var(--border-strong)] px-4 py-2 text-xs font-medium text-[var(--text-primary)]"
               >
-                <X className="h-4 w-4" strokeWidth={1.5} />
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="min-h-[42px] rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
+              >
+                Receive into freezer
               </button>
             </div>
+          </form>
+        )}
+      </ModalSheet>
 
-            <form onSubmit={handleReceiveSubmit} className="mt-4 space-y-3 text-xs">
+      {/* Edit Batch CRUD Sheet */}
+      <ModalSheet
+        open={Boolean(editBatchTarget)}
+        onClose={() => setEditBatchTarget(null)}
+        title="Edit FEFO batch"
+        subtitle={editBatchTarget?.batch_code}
+        maxWidth="max-w-md"
+      >
+        {editBatchTarget && (
+          <form onSubmit={handleSaveBatchEdit} className="space-y-3 p-5 text-xs">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block font-medium text-[var(--text-secondary)]">
-                  Quantity ({receiveTarget.unit})
-                </label>
+                <label className="block font-medium text-[var(--text-secondary)]">Remaining qty</label>
                 <input
                   type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                  value={rxQty}
-                  onChange={(e) => setRxQty(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-[var(--text-secondary)]">Batch buy price (₱)</label>
-                <input
-                  type="number"
+                  inputMode="decimal"
                   step="0.01"
                   min="0"
                   required
-                  value={rxBuy}
-                  onChange={(e) => setRxBuy(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm text-[var(--text-primary)]"
+                  value={ebQty}
+                  onChange={(e) => setEbQty(e.target.value)}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
                 />
               </div>
-
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Buy cost (₱)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={ebBuy}
+                  onChange={(e) => setEbBuy(e.target.value)}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block font-medium text-[var(--text-secondary)]">Expiration date</label>
                 <input
                   type="date"
-                  required
-                  value={rxExpiry}
-                  onChange={(e) => setRxExpiry(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                  value={ebExpiry}
+                  onChange={(e) => setEbExpiry(e.target.value)}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
                 />
               </div>
-
-              <label className="flex items-center gap-2 pt-1 text-[var(--text-secondary)]">
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Clearance price (₱)</label>
                 <input
-                  type="checkbox"
-                  checked={rxUpdateBuy}
-                  onChange={(e) => setRxUpdateBuy(e.target.checked)}
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  value={ebClearance}
+                  onChange={(e) => setEbClearance(e.target.value)}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
                 />
-                Update product buy cost &amp; log price history if changed
-              </label>
-
-              <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setReceiveTarget(null)}
-                  className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-xs font-medium text-[var(--text-primary)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
-                >
-                  Receive into freezer
-                </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <div className="flex items-center justify-between border-t border-[var(--border)] pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Delete batch ${editBatchTarget.batch_code}?`)) {
+                    void deleteBatch(editBatchTarget.id);
+                    setEditBatchTarget(null);
+                  }
+                }}
+                className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger-subtle)]"
+              >
+                Delete batch
+              </button>
+              <button
+                type="submit"
+                className="min-h-[42px] rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white"
+              >
+                Save batch
+              </button>
+            </div>
+          </form>
+        )}
+      </ModalSheet>
 
       <BarcodeScannerModal
         open={scannerOpen}

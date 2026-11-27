@@ -15,7 +15,7 @@ import { ReceiptModal } from '../components/ReceiptModal';
 import { useBarcodeWedge } from '../hooks/useBarcodeWedge';
 import { resolveWholesalePrice } from '../lib/algorithms';
 import { exportToCsv, formatDateTime, formatPhp, todayIsoDate } from '../lib/format';
-import { recordDirectSale } from '../lib/inventory';
+import { deleteSale, recordDirectSale, updateSalePayment } from '../lib/inventory';
 import type {
   Batch,
   PaymentStatus,
@@ -58,6 +58,25 @@ export function PosPage({ products, batches, stores, overrides, sales, saleItems
     items: SaleItem[];
     store?: Store;
   } | null>(null);
+
+  const [editSaleTarget, setEditSaleTarget] = useState<Sale | null>(null);
+  const [esPaid, setEsPaid] = useState('');
+  const [esStatus, setEsStatus] = useState<PaymentStatus>('paid');
+  const [esNotes, setEsNotes] = useState('');
+
+  const openEditSale = (s: Sale) => {
+    setEditSaleTarget(s);
+    setEsPaid(String(s.amount_paid));
+    setEsStatus(s.payment_status);
+    setEsNotes(s.notes || '');
+  };
+
+  const handleSaveSaleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editSaleTarget) return;
+    await updateSalePayment(editSaleTarget, Number(esPaid) || 0, esStatus, esNotes);
+    setEditSaleTarget(null);
+  };
 
   const productsById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const storesById = useMemo(() => new Map(stores.map((s) => [s.id, s])), [stores]);
@@ -586,20 +605,29 @@ export function PosPage({ products, batches, stores, overrides, sales, saleItems
                         {s.payment_status}
                       </td>
                       <td className="py-2.5 pl-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveReceipt({
-                              sale: s,
-                              items: saleItems.filter((si) => si.sale === s.id),
-                              store: s.store ? storesById.get(s.store) : undefined,
-                            })
-                          }
-                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline"
-                        >
-                          <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          View
-                        </button>
+                        <div className="inline-flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditSale(s)}
+                            className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveReceipt({
+                                sale: s,
+                                items: saleItems.filter((si) => si.sale === s.id),
+                                store: s.store ? storesById.get(s.store) : undefined,
+                              })
+                            }
+                            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline"
+                          >
+                            <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
+                            Receipt
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -624,6 +652,78 @@ export function PosPage({ products, batches, stores, overrides, sales, saleItems
         store={activeReceipt?.store}
         onClose={() => setActiveReceipt(null)}
       />
+
+      {/* Edit / Void Sale Payment CRUD Sheet */}
+      <ModalSheet
+        open={Boolean(editSaleTarget)}
+        onClose={() => setEditSaleTarget(null)}
+        title="Edit sale payment"
+        subtitle={editSaleTarget?.receipt_no}
+        maxWidth="max-w-md"
+      >
+        {editSaleTarget && (
+          <form onSubmit={handleSaveSaleEdit} className="space-y-3 p-5 text-xs">
+            <div className="rounded-xl bg-[var(--surface-subtle)] p-3 font-mono-num">
+              Total due: <span className="font-semibold">{formatPhp(editSaleTarget.total_revenue)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Amount paid (₱)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  required
+                  value={esPaid}
+                  onChange={(e) => setEsPaid(e.target.value)}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 font-mono-num text-sm"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-[var(--text-secondary)]">Status</label>
+                <select
+                  value={esStatus}
+                  onChange={(e) => setEsStatus(e.target.value as PaymentStatus)}
+                  className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+                >
+                  <option value="paid">Paid</option>
+                  <option value="partial">Partial</option>
+                  <option value="unpaid">Unpaid</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block font-medium text-[var(--text-secondary)]">Notes</label>
+              <input
+                value={esNotes}
+                onChange={(e) => setEsNotes(e.target.value)}
+                className="mt-1 min-h-[44px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="flex items-center justify-between border-t border-[var(--border)] pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Delete sale ${editSaleTarget.receipt_no}?`)) {
+                    void deleteSale(editSaleTarget.id);
+                    setEditSaleTarget(null);
+                  }
+                }}
+                className="rounded-xl px-3 py-2 text-xs font-medium text-[var(--danger)] hover:bg-[var(--danger-subtle)]"
+              >
+                Delete sale
+              </button>
+              <button
+                type="submit"
+                className="min-h-[42px] rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white"
+              >
+                Save payment
+              </button>
+            </div>
+          </form>
+        )}
+      </ModalSheet>
     </div>
   );
 }

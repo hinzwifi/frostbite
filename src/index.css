@@ -2,57 +2,63 @@
 
 :root {
   color-scheme: light;
-  --bg: #f6f8fa;
+  --bg: #f2f4f7;
   --surface: #ffffff;
-  --surface-subtle: #eef2f6;
+  --surface-subtle: #ebeff4;
   --surface-hover: #e2e8f0;
-  --sidebar-bg: #f0f4f8;
-  --border: rgba(15, 23, 42, 0.10);
-  --border-strong: rgba(15, 23, 42, 0.18);
+  --sidebar-bg: rgba(242, 244, 247, 0.85);
+  --glass-bg: rgba(255, 255, 255, 0.76);
+  --glass-edge: rgba(255, 255, 255, 0.72);
+  --border: rgba(15, 23, 42, 0.09);
+  --border-strong: rgba(15, 23, 42, 0.16);
   --text-primary: #0f172a;
-  --text-secondary: #334155;
-  --text-muted: #526071;
-  --accent: #0284c7;
-  --accent-hover: #0369a1;
-  --accent-subtle: rgba(2, 132, 199, 0.09);
-  --good: #047857;
-  --good-subtle: rgba(4, 120, 87, 0.10);
-  --warn: #b45309;
-  --warn-subtle: rgba(180, 83, 9, 0.11);
-  --danger: #b91c1c;
-  --danger-subtle: rgba(185, 28, 28, 0.10);
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --text-secondary: #3b4758;
+  --text-muted: #64748b;
+  --accent: #007aff;
+  --accent-hover: #0066d6;
+  --accent-subtle: rgba(0, 122, 255, 0.10);
+  --good: #16a34a;
+  --good-subtle: rgba(22, 163, 74, 0.11);
+  --warn: #d97706;
+  --warn-subtle: rgba(217, 119, 6, 0.12);
+  --danger: #dc2626;
+  --danger-subtle: rgba(220, 38, 38, 0.11);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.03);
+  --shadow-sheet: 0 -8px 32px rgba(15, 23, 42, 0.14);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .dark {
   color-scheme: dark;
-  --bg: #0d1117;
-  --surface: #151b23;
-  --surface-subtle: #1c242f;
-  --surface-hover: #24303e;
-  --sidebar-bg: #11161d;
-  --border: rgba(226, 232, 240, 0.10);
-  --border-strong: rgba(226, 232, 240, 0.18);
-  --text-primary: #f1f5f9;
+  --bg: #0b0f14;
+  --surface: #161b22;
+  --surface-subtle: #1f2732;
+  --surface-hover: #283342;
+  --sidebar-bg: rgba(17, 22, 29, 0.86);
+  --glass-bg: rgba(22, 27, 34, 0.78);
+  --glass-edge: rgba(255, 255, 255, 0.10);
+  --border: rgba(241, 245, 249, 0.09);
+  --border-strong: rgba(241, 245, 249, 0.16);
+  --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --accent: #38bdf8;
-  --accent-hover: #7dd3fc;
-  --accent-subtle: rgba(56, 189, 248, 0.13);
-  --good: #34d399;
-  --good-subtle: rgba(52, 211, 153, 0.12);
-  --warn: #fbbf24;
-  --warn-subtle: rgba(251, 191, 36, 0.12);
-  --danger: #f87171;
-  --danger-subtle: rgba(248, 113, 113, 0.12);
-  --shadow-sm: none;
+  --text-muted: #8b9bb0;
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-subtle: rgba(10, 132, 255, 0.16);
+  --good: #30d158;
+  --good-subtle: rgba(48, 209, 88, 0.14);
+  --warn: #ffd60a;
+  --warn-subtle: rgba(255, 214, 10, 0.14);
+  --danger: #ff453a;
+  --danger-subtle: rgba(255, 69, 58, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sheet: 0 -10px 36px rgba(0, 0, 0, 0.55);
 }
 
 @layer base {
   html {
-    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "IBM Plex Sans", "Segoe UI", sans-serif;
     font-size: 14px;
     background-color: var(--bg);
     color: var(--text-primary);
@@ -60,6 +66,7 @@
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
     overflow-x: clip;
+    font-optical-sizing: auto;
   }
 
   body {
@@ -68,12 +75,16 @@
     min-height: 100dvh;
   }
 
+  h1,
+  h2 {
+    letter-spacing: -0.02em;
+  }
+
   ::selection {
     background-color: var(--accent-subtle);
     color: var(--text-primary);
   }
 
-  /* Native-feel touch ergonomics: no 300ms click delay, no accidental text selection on long-press */
   button,
   a,
   [role="button"] {
@@ -87,7 +98,7 @@
       background-color 140ms var(--ease-out),
       border-color 140ms var(--ease-out),
       color 140ms var(--ease-out),
-      transform 120ms var(--ease-out),
+      transform 110ms var(--ease-out),
       opacity 140ms var(--ease-out);
   }
 
@@ -95,7 +106,6 @@
     transform: scale(0.97);
   }
 
-  /* Prevent iOS Safari auto-zoom on touch inputs without disabling pinch zoom */
   @media (pointer: coarse) {
     input,
     textarea,
@@ -127,11 +137,25 @@
   }
 }
 
-/* Mobile bottom-sheet & dialog entrance animation */
+/* Apple Translucent Glass Material (WWDC Materials & Depth) */
+.apple-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+
+.apple-glass-bar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border-top: 1px solid var(--glass-edge);
+}
+
+/* Apple Fluid Sheet Entrance */
 @keyframes sheet-enter {
   from {
     opacity: 0;
-    transform: translateY(16px) scale(0.98);
+    transform: translateY(24px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -140,12 +164,13 @@
 }
 
 .sheet-surface {
-  animation: sheet-enter 220ms var(--ease-drawer) both;
+  animation: sheet-enter 280ms var(--ease-drawer) both;
   overscroll-behavior: contain;
+  box-shadow: var(--shadow-sheet);
 }
 
 .safe-top {
-  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-top: max(0.65rem, env(safe-area-inset-top));
 }
 
 .safe-bottom {
@@ -158,6 +183,22 @@
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .apple-glass,
+  .apple-glass-bar {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root,
+  .dark {
+    --border: var(--border-strong);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -174,7 +215,6 @@
   }
 }
 
-/* Print layout for Delivery Receipts & Barcode Label Sheets */
 @media print {
   body {
     background: #ffffff !important;

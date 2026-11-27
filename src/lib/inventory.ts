@@ -555,6 +555,48 @@ export async function updateBatchClearance(batch: Batch, clearancePrice: number)
   await mutateLocalAndQueue('batches', 'update', updated.id, updated);
 }
 
+export async function updateBatch(
+  batch: Batch,
+  patch: Partial<Pick<Batch, 'remaining_qty' | 'buy_price' | 'expiry_date' | 'clearance_price' | 'batch_code' | 'status'>>
+): Promise<void> {
+  const nextQty = patch.remaining_qty ?? batch.remaining_qty;
+  const updated: Batch = {
+    ...batch,
+    ...patch,
+    status: patch.status ?? (nextQty <= 0 ? 'depleted' : 'active'),
+    updated: new Date().toISOString(),
+  };
+  await mutateLocalAndQueue('batches', 'update', updated.id, updated);
+}
+
+export async function deleteBatch(id: string): Promise<void> {
+  await mutateLocalAndQueue('batches', 'delete', id);
+}
+
+export async function deleteStoreOverride(id: string): Promise<void> {
+  await mutateLocalAndQueue('store_price_overrides', 'delete', id);
+}
+
+export async function updateSalePayment(
+  sale: Sale,
+  amountPaid: number,
+  paymentStatus: PaymentStatus,
+  notes?: string
+): Promise<void> {
+  const updated: Sale = {
+    ...sale,
+    amount_paid: amountPaid,
+    payment_status: paymentStatus,
+    notes: notes ?? sale.notes,
+    updated: new Date().toISOString(),
+  };
+  await mutateLocalAndQueue('sales', 'update', updated.id, updated);
+}
+
+export async function deleteSale(id: string): Promise<void> {
+  await mutateLocalAndQueue('sales', 'delete', id);
+}
+
 export async function saveStore(
   input: Omit<Store, 'id' | 'created' | 'updated'> & { id?: string }
 ): Promise<Store> {
