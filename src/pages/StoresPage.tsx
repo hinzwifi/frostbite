@@ -243,7 +243,7 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             Partner stores &amp; consignment
@@ -255,16 +255,45 @@ export function StoresPage({ stores, products, batches, overrides }: Props) {
         <button
           type="button"
           onClick={openAddStore}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3.5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)] transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3.5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
         >
           <Plus className="h-4 w-4" strokeWidth={1.5} />
           Add partner store
         </button>
       </div>
 
+      {/* Mobile horizontal store selector chips (no scrolling past vertical list!) */}
+      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1 lg:hidden">
+        <button
+          type="button"
+          onClick={openAddStore}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--accent)] px-3.5 py-2 text-xs font-medium text-[var(--accent)]"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+          Store
+        </button>
+        {stores.map((st) => {
+          const active = selectedStore?.id === st.id;
+          return (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => setSelectedStoreId(st.id)}
+              className={`shrink-0 rounded-full px-3.5 py-2 text-xs font-medium ${
+                active
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]'
+              }`}
+            >
+              {st.name}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* Store list sidebar */}
-        <div className="space-y-2">
+        {/* Desktop store list sidebar */}
+        <div className="hidden space-y-2 lg:block">
           {stores.length === 0 ? (
             <div className="rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-6 text-center text-xs text-[var(--text-muted)]">
               No partner stores yet. Add a sari-sari store or reseller you supply to.

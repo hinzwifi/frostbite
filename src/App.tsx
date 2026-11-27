@@ -46,6 +46,23 @@ const NAV_ITEMS: Array<{ id: NavTab; label: string; icon: typeof LayoutDashboard
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
+const MOBILE_TABS: Array<{ id: NavTab; label: string; icon: typeof LayoutDashboard }> = [
+  { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+  { id: 'catalog', label: 'Stock', icon: Package },
+  { id: 'pos', label: 'POS', icon: ShoppingCart },
+  { id: 'stores', label: 'Stores', icon: StoreIcon },
+  { id: 'optimizer', label: 'Plan', icon: Calculator },
+];
+
+const TAB_TITLES: Record<NavTab, string> = {
+  dashboard: 'Overview',
+  catalog: 'Catalog & FEFO',
+  stores: 'Partner stores',
+  pos: 'Direct POS',
+  optimizer: 'Restock plan',
+  settings: 'Settings',
+};
+
 function getInitialDark(): boolean {
   const saved = localStorage.getItem('frostbite_theme');
   if (saved === 'dark') return true;
@@ -280,41 +297,69 @@ export function App() {
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile Top Bar with safe-area notch support */}
-        <header className="no-print safe-top flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 pb-3 md:hidden">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
+        {/* Sticky Mobile App Bar (Google / Reddit / FB pattern: brand/title left, sync + theme + settings right) */}
+        <header className="no-print safe-top sticky top-0 z-30 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)]/95 px-3.5 pb-2.5 backdrop-blur-md md:hidden">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-white">
               <Snowflake className="h-4 w-4" strokeWidth={1.75} />
             </div>
-            <span className="truncate text-sm font-semibold">{businessName}</span>
+            <div className="min-w-0 leading-tight">
+              <div className="truncate text-[15px] font-semibold text-[var(--text-primary)]">
+                {tab === 'dashboard' ? businessName : TAB_TITLES[tab]}
+              </div>
+              <div className="truncate text-[11px] text-[var(--text-muted)]">
+                {!sync.online
+                  ? 'Offline ledger'
+                  : sync.pendingCount > 0
+                    ? `${sync.pendingCount} pending sync`
+                    : businessName}
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={() => void sync.syncNow()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1 text-xs"
+              aria-label="Sync with PocketBase"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
             >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  !sync.online || sync.pendingCount > 0 ? 'bg-[var(--warn)]' : 'bg-[var(--good)]'
-                }`}
-              />
-              <span className="font-mono-num text-[11px]">
-                {!sync.online ? 'Offline' : sync.pendingCount > 0 ? `${sync.pendingCount}` : 'Synced'}
+              <span className="relative flex items-center justify-center">
+                <RefreshCw
+                  className={`h-4 w-4 ${sync.syncing ? 'animate-spin text-[var(--accent)]' : ''}`}
+                  strokeWidth={1.5}
+                />
+                <span
+                  className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-[var(--surface)] ${
+                    !sync.online || sync.pendingCount > 0 ? 'bg-[var(--warn)]' : 'bg-[var(--good)]'
+                  }`}
+                />
               </span>
             </button>
             <button
               type="button"
               onClick={() => setDark((d) => !d)}
-              className="rounded-lg p-1.5 text-[var(--text-secondary)]"
               aria-label="Toggle theme"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]"
             >
               {dark ? <Sun className="h-4 w-4" strokeWidth={1.5} /> : <Moon className="h-4 w-4" strokeWidth={1.5} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('settings')}
+              aria-label="Open settings"
+              className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                tab === 'settings'
+                  ? 'bg-[var(--accent-subtle)] text-[var(--accent)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)]'
+              }`}
+            >
+              <Settings className="h-4 w-4" strokeWidth={1.5} />
             </button>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1440px] flex-1 p-5 pb-24 md:p-7 md:pb-8">
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-3.5 py-4 pb-28 md:p-7 md:pb-8">
           {tab === 'dashboard' && (
             <DashboardPage
               products={products}
@@ -371,12 +416,12 @@ export function App() {
           )}
         </main>
 
-        {/* Mobile Bottom Navigation — 44px+ touch targets & safe-area home-indicator padding */}
+        {/* 5-Tab Material/Reddit-Style Bottom Navigation Bar */}
         <nav
           aria-label="Primary navigation"
-          className="no-print safe-bottom fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)]/95 px-1 pt-1.5 backdrop-blur-sm md:hidden"
+          className="no-print safe-bottom fixed bottom-0 left-0 right-0 z-40 grid grid-cols-5 border-t border-[var(--border)] bg-[var(--surface)]/95 px-1 pt-1.5 backdrop-blur-md md:hidden"
         >
-          {NAV_ITEMS.map((item) => {
+          {MOBILE_TABS.map((item) => {
             const Icon = item.icon;
             const active = tab === item.id;
             return (
@@ -385,12 +430,24 @@ export function App() {
                 type="button"
                 onClick={() => setTab(item.id)}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-[44px] min-w-[48px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[11px] ${
-                  active ? 'font-medium text-[var(--accent)]' : 'text-[var(--text-muted)]'
-                }`}
+                className="flex min-h-[48px] flex-col items-center justify-center gap-0.5 text-[11px]"
               >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                <span>{item.label.split(' ')[0]}</span>
+                <span
+                  className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${
+                    active
+                      ? 'bg-[var(--accent-subtle)] text-[var(--accent)]'
+                      : 'text-[var(--text-muted)]'
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={active ? 2 : 1.5} />
+                </span>
+                <span
+                  className={
+                    active ? 'font-medium text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+                  }
+                >
+                  {item.label}
+                </span>
               </button>
             );
           })}

@@ -59,10 +59,12 @@
     caret-color: var(--accent);
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
+    overflow-x: clip;
   }
 
   body {
     overscroll-behavior: none;
+    overflow-x: clip;
     min-height: 100dvh;
   }
 
@@ -148,6 +150,14 @@
 
 .safe-bottom {
   padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

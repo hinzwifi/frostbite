@@ -293,7 +293,7 @@ export function CatalogPage({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             Catalog &amp; FEFO inventory
@@ -310,7 +310,7 @@ export function CatalogPage({
               setScanMode('lookup');
               setScannerOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
           >
             <ScanBarcode className="h-4 w-4 text-[var(--text-secondary)]" strokeWidth={1.5} />
             Scan barcode
@@ -320,7 +320,7 @@ export function CatalogPage({
               <button
                 type="button"
                 onClick={() => setLabelProducts(filtered.map((f) => f.product))}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
               >
                 <Printer className="h-4 w-4 text-[var(--text-secondary)]" strokeWidth={1.5} />
                 Print labels
@@ -328,7 +328,7 @@ export function CatalogPage({
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)]"
               >
                 <Download className="h-4 w-4 text-[var(--text-secondary)]" strokeWidth={1.5} />
                 CSV
@@ -338,7 +338,7 @@ export function CatalogPage({
           <button
             type="button"
             onClick={openAdd}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3.5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3.5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)]"
           >
             <Plus className="h-4 w-4" strokeWidth={1.5} />
             Add product
@@ -346,36 +346,176 @@ export function CatalogPage({
         </div>
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
-            strokeWidth={1.5}
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, barcode, SKU, or supplier"
-            className="w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
-          />
+      {/* Compact search + inline barcode scan (Google/Reddit mobile pattern) */}
+      <div className="space-y-2.5">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]"
+              strokeWidth={1.5}
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, barcode, or supplier"
+              autoCapitalize="none"
+              autoCorrect="off"
+              enterKeyHint="search"
+              className="min-h-[42px] w-full rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] md:min-h-0 md:rounded-lg"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setScanMode('lookup');
+              setScannerOpen(true);
+            }}
+            aria-label="Scan barcode"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text-primary)] md:hidden"
+          >
+            <ScanBarcode className="h-5 w-5" strokeWidth={1.5} />
+          </button>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="hidden rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] md:block"
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c === 'all' ? 'All categories' : c}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)]"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c === 'all' ? 'All categories' : c}
-            </option>
-          ))}
-        </select>
+
+        {/* Horizontal category chip bar on mobile (YouTube / Reddit / FB pattern) */}
+        <div className="no-scrollbar flex gap-2 overflow-x-auto pb-0.5 md:hidden">
+          {categories.map((c) => {
+            const active = categoryFilter === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategoryFilter(c)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium ${
+                  active
+                    ? 'bg-[var(--accent)] text-white'
+                    : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)]'
+                }`}
+              >
+                {c === 'all' ? 'All' : c}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Product table */}
-      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)]">
+      {/* Mobile Feed Cards (zero horizontal scroll) */}
+      <div className="space-y-2.5 md:hidden">
+        {filtered.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-8 text-center text-xs text-[var(--text-muted)]">
+            No frozen products yet. Tap the + button to add your first item.
+          </div>
+        ) : (
+          filtered.map((m) => {
+            const isSelected = selectedId === m.product.id;
+            const exp = getExpiryUrgency(m.nearestExpiryDate, thresholds);
+            const dotColor =
+              exp.urgency === 'expired' || exp.urgency === 'critical'
+                ? 'bg-[var(--danger)]'
+                : exp.urgency === 'warn14'
+                  ? 'bg-[var(--warn)]'
+                  : exp.urgency === 'warn30'
+                    ? 'bg-[var(--accent)]'
+                    : '';
+
+            return (
+              <div
+                key={m.product.id}
+                onClick={() => setSelectedId(isSelected ? null : m.product.id)}
+                className={`rounded-xl border p-3.5 ${
+                  isSelected
+                    ? 'border-[var(--accent)] bg-[var(--accent-subtle)]'
+                    : 'border-[var(--border)] bg-[var(--surface)]'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-[var(--text-primary)]">
+                      {m.product.name}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                      {m.product.category} · per {m.product.unit} · Score {m.favorabilityScore}/100
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-mono-num text-sm font-semibold text-[var(--text-primary)]">
+                      {formatPhp(m.product.srp_price)}
+                    </div>
+                    <div className="font-mono-num text-[11px] text-[var(--good)]">+{m.srpMarginPct}%</div>
+                  </div>
+                </div>
+
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5 text-[11px]">
+                  <div className="flex items-center gap-3 font-mono-num text-[var(--text-secondary)]">
+                    <span>Buy {formatPhp(m.product.buy_price)}</span>
+                    <span>
+                      Stock {m.mainQty}/{m.storeQty}
+                    </span>
+                    {m.nearestExpiryDate && (
+                      <span className="inline-flex items-center gap-1">
+                        {dotColor && <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />}
+                        {formatDate(m.nearestExpiryDate)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => openReceive(m.product)}
+                      className="inline-flex min-h-[32px] items-center gap-1 rounded-lg bg-[var(--surface-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-primary)]"
+                    >
+                      <PackagePlus className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Receive
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLabelProducts([m.product])}
+                      aria-label={`Print label for ${m.product.name}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-subtle)] text-[var(--text-secondary)]"
+                    >
+                      <Printer className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(m.product)}
+                      aria-label={`Edit ${m.product.name}`}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-subtle)] text-[var(--text-secondary)]"
+                    >
+                      <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Mobile Floating Action Button (FAB) */}
+      <button
+        type="button"
+        onClick={openAdd}
+        aria-label="Add frozen product"
+        className="no-print fixed bottom-[76px] right-4 z-30 flex h-13 w-13 items-center justify-center rounded-2xl bg-[var(--accent)] text-white shadow-lg md:hidden"
+      >
+        <Plus className="h-6 w-6" strokeWidth={2} />
+      </button>
+
+      {/* Desktop Product table */}
+      <div className="hidden overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-sm)] md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>

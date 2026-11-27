@@ -155,13 +155,37 @@ export function OptimizerPage({ metrics, defaultWeights = DEFAULT_OPTIMIZER_WEIG
         )}
 
         {/* Recommended Purchase Order */}
-        <div className="mt-5 overflow-x-auto">
+        <div className="mt-5">
           {plan.recommendations.length === 0 ? (
             <p className="rounded-lg bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">
               Add products with buy prices (or increase budget) to generate a purchase plan.
             </p>
           ) : (
-            <table className="w-full text-left text-xs">
+            <>
+              {/* Mobile recommendation cards */}
+              <div className="divide-y divide-[var(--border)] md:hidden">
+                {plan.recommendations.map((r) => (
+                  <div key={r.product.id} className="flex items-start justify-between gap-3 py-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="font-medium text-[var(--text-primary)]">{r.product.name}</div>
+                      <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                        {r.reason} · Score {r.metrics.favorabilityScore}/100
+                      </div>
+                      <div className="mt-1 font-mono-num text-[11px] text-[var(--text-secondary)]">
+                        Cost {formatPhp(r.estimatedCost)} · Profit{' '}
+                        <span className="text-[var(--good)]">+{formatPhp(r.expectedProfit)}</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 rounded-lg bg-[var(--accent-subtle)] px-2.5 py-1.5 font-mono-num text-xs font-semibold text-[var(--accent)]">
+                      +{r.recommendedQty} {r.product.unit}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop recommendation table */}
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
                   <th className="py-2 pr-3 font-medium">Product</th>
@@ -201,6 +225,8 @@ export function OptimizerPage({ metrics, defaultWeights = DEFAULT_OPTIMIZER_WEIG
                 ))}
               </tbody>
             </table>
+              </div>
+            </>
           )}
         </div>
       </div>

@@ -146,8 +146,8 @@ export function DashboardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="hidden md:block">
           <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
             Operations overview
           </h1>
@@ -156,18 +156,18 @@ export function DashboardPage({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:items-center">
           <button
             type="button"
             onClick={() => onNavigate('pos')}
-            className="rounded-lg bg-[var(--accent)] px-3.5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)] transition-colors"
+            className="min-h-[42px] rounded-xl bg-[var(--accent)] px-3.5 py-2 text-xs font-medium text-white hover:bg-[var(--accent-hover)] md:min-h-0 md:rounded-lg"
           >
             New direct sale
           </button>
           <button
             type="button"
             onClick={() => onNavigate('optimizer')}
-            className="rounded-lg border border-[var(--border-strong)] bg-[var(--surface)] px-3.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors"
+            className="min-h-[42px] rounded-xl border border-[var(--border-strong)] bg-[var(--surface)] px-3.5 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] md:min-h-0 md:rounded-lg"
           >
             Restock optimizer
           </button>
@@ -383,7 +383,73 @@ export function DashboardPage({
             No active batches expiring within {thresholds.warn30} days.
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <>
+            {/* Mobile FEFO feed cards */}
+            <div className="mt-3 divide-y divide-[var(--border)] md:hidden">
+              {expiryTimeline.map(({ batch, product, urgency, days, clearance }) => {
+                const dotColor =
+                  urgency === 'expired' || urgency === 'critical'
+                    ? 'bg-[var(--danger)]'
+                    : urgency === 'warn14'
+                      ? 'bg-[var(--warn)]'
+                      : 'bg-[var(--accent)]';
+                const locLabel =
+                  batch.location_type === 'main'
+                    ? 'Main freezer'
+                    : storesById.get(batch.store)?.name ?? 'Partner store';
+
+                return (
+                  <div key={batch.id} className="flex items-center justify-between gap-3 py-3 text-xs">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
+                        <span className="truncate font-medium text-[var(--text-primary)]">
+                          {product?.name ?? 'Unknown'}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                        {locLabel} · {batch.remaining_qty} {product?.unit ?? ''} ·{' '}
+                        <span
+                          className={
+                            urgency === 'expired' || urgency === 'critical'
+                              ? 'font-medium text-[var(--danger)]'
+                              : 'font-medium text-[var(--warn)]'
+                          }
+                        >
+                          {days !== null && days < 0 ? `${Math.abs(days)}d overdue` : `${days}d left`}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {clearance && clearance.suggestedPrice > 0 && batch.clearance_price <= 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => void updateBatchClearance(batch, clearance.suggestedPrice)}
+                          className="min-h-[34px] rounded-lg border border-[var(--border-strong)] px-2.5 py-1 text-[11px] font-medium"
+                        >
+                          Promo {formatPhp(clearance.suggestedPrice)}
+                        </button>
+                      ) : urgency === 'expired' ? (
+                        <button
+                          type="button"
+                          onClick={() => void writeOffBatch(batch)}
+                          className="min-h-[34px] rounded-lg bg-[var(--danger-subtle)] px-2.5 py-1 text-[11px] font-medium text-[var(--danger)]"
+                        >
+                          Write off
+                        </button>
+                      ) : (
+                        <span className="font-mono-num text-[11px] text-[var(--accent)]">
+                          {formatPhp(batch.clearance_price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop FEFO table */}
+            <div className="mt-4 hidden overflow-x-auto md:block">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-[var(--border)] text-[var(--text-muted)]">
@@ -485,6 +551,7 @@ export function DashboardPage({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>
